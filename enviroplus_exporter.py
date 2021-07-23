@@ -182,17 +182,17 @@ def get_particulates():
 def collect_all_data():
     """Collects all the data currently set"""
     sensor_data = {}
-    sensor_data['temperature'] = TEMPERATURE.collect()[0].samples[0].value
-    sensor_data['humidity'] = HUMIDITY.collect()[0].samples[0].value
-    sensor_data['pressure'] = PRESSURE.collect()[0].samples[0].value
-    sensor_data['oxidising'] = OXIDISING.collect()[0].samples[0].value
-    sensor_data['reducing'] = REDUCING.collect()[0].samples[0].value
-    sensor_data['nh3'] = NH3.collect()[0].samples[0].value
-    sensor_data['lux'] = LUX.collect()[0].samples[0].value
-    sensor_data['proximity'] = PROXIMITY.collect()[0].samples[0].value
-    sensor_data['pm1'] = PM1.collect()[0].samples[0].value
-    sensor_data['pm25'] = PM25.collect()[0].samples[0].value
-    sensor_data['pm10'] = PM10.collect()[0].samples[0].value
+    sensor_data['BME280_temperature'] = TEMPERATURE.collect()[0].samples[0].value
+    sensor_data['BME280_humidity'] = HUMIDITY.collect()[0].samples[0].value
+    sensor_data['BME280_pressure'] = PRESSURE.collect()[0].samples[0].value
+    sensor_data['MICS6814_oxidising'] = OXIDISING.collect()[0].samples[0].value
+    sensor_data['MICS6814_reducing'] = REDUCING.collect()[0].samples[0].value
+    sensor_data['MICS6814_nh3'] = NH3.collect()[0].samples[0].value
+    sensor_data['LTR559_lux'] = LUX.collect()[0].samples[0].value
+    sensor_data['LTR559_proximity'] = PROXIMITY.collect()[0].samples[0].value
+    sensor_data['PMS_P0'] = PM1.collect()[0].samples[0].value
+    sensor_data['PMS_P1'] = PM10.collect()[0].samples[0].value
+    sensor_data['PMS_P2'] = PM25.collect()[0].samples[0].value
     return sensor_data
 
 def post_to_influxdb():
