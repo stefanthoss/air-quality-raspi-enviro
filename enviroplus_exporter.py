@@ -76,7 +76,7 @@ INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "")
 INFLUXDB_ORG_ID = os.getenv("INFLUXDB_ORG_ID", "")
 INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "")
 INFLUXDB_TIME_BETWEEN_POSTS = int(os.getenv("INFLUXDB_TIME_BETWEEN_POSTS", "5"))
-influxdb_measurement = os.environ.get("INFLUXDB_MEASUREMENT", "air_quality")
+INFLUXDB_MEASUREMENT = os.getenv("INFLUXDB_MEASUREMENT", "air_quality")
 influxdb_client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG_ID)
 influxdb_api = influxdb_client.write_api(write_options=SYNCHRONOUS)
 
@@ -210,7 +210,7 @@ def post_to_influxdb():
         data_points = []
         sensor_data = collect_all_data()
         for field_name in sensor_data:
-            data_points.append(Point(influxdb_measurement).tag("node", SENSOR_UID).field(field_name, sensor_data[field_name]))
+            data_points.append(Point(INFLUXDB_MEASUREMENT).tag("node", SENSOR_UID).field(field_name, sensor_data[field_name]))
         try:
             influxdb_api.write(bucket=INFLUXDB_BUCKET, record=data_points)
             if DEBUG:
@@ -310,7 +310,7 @@ if __name__ == "__main__":
 
     if args.influxdb:
         # Post to InfluxDB in another thread
-        logging.info("Sensor data will be posted to InfluxDB every {} seconds".format(INFLUXDB_TIME_BETWEEN_POSTS))
+        logging.info("Sensor data will be posted to InfluxDB every {} seconds for the node {}".format(INFLUXDB_TIME_BETWEEN_POSTS, SENSOR_UID))
         influx_thread = Thread(target=post_to_influxdb)
         influx_thread.start()
 
