@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
-import os
-import random
-import requests
-import time
-import logging
+
 import argparse
+import logging
+import os
 import subprocess
+import time
 from threading import Thread
 
-from prometheus_client import start_http_server, Gauge, Histogram
+import requests
+from influxdb_client import InfluxDBClient, Point
+from influxdb_client.client.write_api import SYNCHRONOUS
+from prometheus_client import Gauge, Histogram, start_http_server
 
 from bme280 import BME280
 from enviroplus import gas
-from pms5003 import PMS5003, ReadTimeoutError as pmsReadTimeoutError
-
-from influxdb_client import InfluxDBClient, Point
-from influxdb_client.client.write_api import SYNCHRONOUS
-
+from pms5003 import PMS5003
+from pms5003 import ReadTimeoutError as pmsReadTimeoutError
 
 try:
     from smbus2 import SMBus
@@ -26,16 +25,17 @@ except ImportError:
 try:
     # Transitional fix for breaking change in LTR559
     from ltr559 import LTR559
+
     ltr559 = LTR559()
 except ImportError:
     import ltr559
 
 logging.basicConfig(
-    format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
+    format="%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s",
     level=logging.INFO,
-    handlers=[logging.FileHandler("enviroplus_exporter.log"),
-              logging.StreamHandler()],
-    datefmt='%Y-%m-%d %H:%M:%S')
+    handlers=[logging.FileHandler("enviroplus_exporter.log"), logging.StreamHandler()],
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 logging.info("""enviroplus_exporter.py - Expose readings from the Enviro+ sensor by Pimoroni in Prometheus format
 
@@ -43,7 +43,7 @@ Press Ctrl+C to exit!
 
 """)
 
-DEBUG = os.getenv('DEBUG', 'false') == 'true'
+DEBUG = os.getenv("DEBUG", "false") == "true"
 
 bus = SMBus(1)
 bme280 = BME280(i2c_dev=bus)
@@ -71,21 +71,21 @@ PM10_HIST = Histogram('pm10_measurements', 'Histogram of Particulate Matter of d
 
 # Setup InfluxDB
 # You can generate an InfluxDB Token from the Tokens Tab in the InfluxDB Cloud UI
-INFLUXDB_URL = os.getenv('INFLUXDB_URL', '')
-INFLUXDB_TOKEN = os.getenv('INFLUXDB_TOKEN', '')
-INFLUXDB_ORG_ID = os.getenv('INFLUXDB_ORG_ID', '')
-INFLUXDB_BUCKET = os.getenv('INFLUXDB_BUCKET', '')
-INFLUXDB_SENSOR_LOCATION = os.getenv('INFLUXDB_SENSOR_LOCATION', 'Adelaide')
-INFLUXDB_TIME_BETWEEN_POSTS = int(os.getenv('INFLUXDB_TIME_BETWEEN_POSTS', '5'))
+INFLUXDB_URL = os.getenv("INFLUXDB_URL", "")
+INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "")
+INFLUXDB_ORG_ID = os.getenv("INFLUXDB_ORG_ID", "")
+INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "")
+INFLUXDB_TIME_BETWEEN_POSTS = int(os.getenv("INFLUXDB_TIME_BETWEEN_POSTS", "5"))
+influxdb_measurement = os.environ.get("INFLUXDB_MEASUREMENT", "air_quality")
 influxdb_client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG_ID)
 influxdb_api = influxdb_client.write_api(write_options=SYNCHRONOUS)
 
 # Setup Luftdaten
-LUFTDATEN_TIME_BETWEEN_POSTS = int(os.getenv('LUFTDATEN_TIME_BETWEEN_POSTS', '30'))
+LUFTDATEN_TIME_BETWEEN_POSTS = int(os.getenv("LUFTDATEN_TIME_BETWEEN_POSTS", "30"))
 
-# Sometimes the sensors can't be read. Resetting the i2c 
+# Sometimes the sensors can't be read. Resetting the i2c
 def reset_i2c():
-    subprocess.run(['i2cdetect', '-y', '1'])
+    subprocess.run(["i2cdetect", "-y", "1"])
     time.sleep(2)
 
 
@@ -95,6 +95,7 @@ def get_cpu_temperature():
         temp = f.read()
         temp = int(temp) / 1000.0
     return temp
+
 
 def get_temperature(factor):
     """Get temperature from the weather sensor"""
@@ -112,7 +113,8 @@ def get_temperature(factor):
     else:
         temperature = raw_temp
 
-    TEMPERATURE.set(temperature)   # Set to a given value
+    TEMPERATURE.set(temperature)  # Set to a given value
+
 
 def get_pressure():
     """Get pressure from the weather sensor"""
@@ -123,6 +125,7 @@ def get_pressure():
         logging.error("Could not get pressure readings. Resetting i2c.")
         reset_i2c()
 
+
 def get_humidity():
     """Get humidity from the weather sensor"""
     try:
@@ -131,6 +134,7 @@ def get_humidity():
     except IOError:
         logging.error("Could not get humidity readings. Resetting i2c.")
         reset_i2c()
+
 
 def get_gas():
     """Get all gas readings"""
@@ -149,17 +153,19 @@ def get_gas():
         logging.error("Could not get gas readings. Resetting i2c.")
         reset_i2c()
 
+
 def get_light():
     """Get all light readings"""
     try:
-       lux = ltr559.get_lux()
-       prox = ltr559.get_proximity()
+        lux = ltr559.get_lux()
+        prox = ltr559.get_proximity()
 
-       LUX.set(lux)
-       PROXIMITY.set(prox)
+        LUX.set(lux)
+        PROXIMITY.set(prox)
     except IOError:
         logging.error("Could not get lux and proximity readings. Resetting i2c.")
         reset_i2c()
+
 
 def get_particulates():
     """Get the particulate matter readings"""
@@ -179,108 +185,110 @@ def get_particulates():
         PM25_HIST.observe(pms_data.pm_ug_per_m3(2.5) - pms_data.pm_ug_per_m3(1.0))
         PM10_HIST.observe(pms_data.pm_ug_per_m3(10) - pms_data.pm_ug_per_m3(2.5))
 
+
 def collect_all_data():
     """Collects all the data currently set"""
     sensor_data = {}
-    sensor_data['BME280_temperature'] = TEMPERATURE.collect()[0].samples[0].value
-    sensor_data['BME280_humidity'] = HUMIDITY.collect()[0].samples[0].value
-    sensor_data['BME280_pressure'] = PRESSURE.collect()[0].samples[0].value
-    sensor_data['MICS6814_oxidising'] = OXIDISING.collect()[0].samples[0].value
-    sensor_data['MICS6814_reducing'] = REDUCING.collect()[0].samples[0].value
-    sensor_data['MICS6814_nh3'] = NH3.collect()[0].samples[0].value
-    sensor_data['LTR559_lux'] = LUX.collect()[0].samples[0].value
-    sensor_data['LTR559_proximity'] = PROXIMITY.collect()[0].samples[0].value
-    sensor_data['PMS_P0'] = PM1.collect()[0].samples[0].value
-    sensor_data['PMS_P1'] = PM10.collect()[0].samples[0].value
-    sensor_data['PMS_P2'] = PM25.collect()[0].samples[0].value
+    sensor_data["BME280_temperature"] = TEMPERATURE.collect()[0].samples[0].value
+    sensor_data["BME280_humidity"] = HUMIDITY.collect()[0].samples[0].value
+    sensor_data["BME280_pressure"] = PRESSURE.collect()[0].samples[0].value
+    sensor_data["MICS6814_oxidising"] = OXIDISING.collect()[0].samples[0].value
+    sensor_data["MICS6814_reducing"] = REDUCING.collect()[0].samples[0].value
+    sensor_data["MICS6814_nh3"] = NH3.collect()[0].samples[0].value
+    sensor_data["LTR559_lux"] = LUX.collect()[0].samples[0].value
+    sensor_data["LTR559_proximity"] = PROXIMITY.collect()[0].samples[0].value
+    sensor_data["PMS_P0"] = PM1.collect()[0].samples[0].value
+    sensor_data["PMS_P1"] = PM10.collect()[0].samples[0].value
+    sensor_data["PMS_P2"] = PM25.collect()[0].samples[0].value
     return sensor_data
+
 
 def post_to_influxdb():
     """Post all sensor data to InfluxDB"""
-    name = 'enviroplus'
-    tag = ['location', 'adelaide']
     while True:
         time.sleep(INFLUXDB_TIME_BETWEEN_POSTS)
         data_points = []
-        epoch_time_now = round(time.time())
         sensor_data = collect_all_data()
         for field_name in sensor_data:
-            data_points.append(Point('enviroplus').tag('location', INFLUXDB_SENSOR_LOCATION).field(field_name, sensor_data[field_name]))
+            data_points.append(
+                Point(influxdb_measurement).tag("node", SENSOR_UID).field(field_name, sensor_data[field_name])
+            )
         try:
             influxdb_api.write(bucket=INFLUXDB_BUCKET, record=data_points)
             if DEBUG:
-                logging.info('InfluxDB response: OK')
+                logging.info("InfluxDB response: OK")
         except Exception as exception:
-            logging.warning('Exception sending to InfluxDB: {}'.format(exception))
+            logging.warning("Exception sending to InfluxDB: {}".format(exception))
+
 
 def post_to_luftdaten():
     """Post relevant sensor data to luftdaten.info"""
     """Code from: https://github.com/sepulworld/balena-environ-plus"""
-    LUFTDATEN_SENSOR_UID = 'raspi-' + get_serial_number()
     while True:
         time.sleep(LUFTDATEN_TIME_BETWEEN_POSTS)
         sensor_data = collect_all_data()
         values = {}
-        values["P2"] = sensor_data['pm25']
-        values["P1"] = sensor_data['pm10']
-        values["temperature"] = "{:.2f}".format(sensor_data['temperature'])
-        values["pressure"] = "{:.2f}".format(sensor_data['pressure'] * 100)
-        values["humidity"] = "{:.2f}".format(sensor_data['humidity'])
-        pm_values = dict(i for i in values.items() if i[0].startswith('P'))
-        temperature_values = dict(i for i in values.items() if not i[0].startswith('P'))
+        values["P2"] = sensor_data["pm25"]
+        values["P1"] = sensor_data["pm10"]
+        values["P0"] = sensor_data["pm1"]
+        values["temperature"] = "{:.2f}".format(sensor_data["temperature"])
+        values["pressure"] = "{:.2f}".format(sensor_data["pressure"] * 100)
+        values["humidity"] = "{:.2f}".format(sensor_data["humidity"])
+        pm_values = dict(i for i in values.items() if i[0].startswith("P"))
+        temperature_values = dict(i for i in values.items() if not i[0].startswith("P"))
         try:
-            response_pin_1 = requests.post('https://api.luftdaten.info/v1/push-sensor-data/',
+            response_pin_1 = requests.post("https://api.luftdaten.info/v1/push-sensor-data/",
                 json={
                     "software_version": "enviro-plus 0.0.1",
-                    "sensordatavalues": [{"value_type": key, "value": val} for
-                                        key, val in pm_values.items()]
+                    "sensordatavalues": [{"value_type": key, "value": val} for key, val in pm_values.items()],
                 },
                 headers={
-                    "X-PIN":    "1",
-                    "X-Sensor": LUFTDATEN_SENSOR_UID,
+                    "X-PIN": "1",
+                    "X-Sensor": SENSOR_UID,
                     "Content-Type": "application/json",
-                    "cache-control": "no-cache"
-                }
+                    "cache-control": "no-cache",
+                },
             )
 
-            response_pin_11 = requests.post('https://api.luftdaten.info/v1/push-sensor-data/',
-                    json={
-                        "software_version": "enviro-plus 0.0.1",
-                        "sensordatavalues": [{"value_type": key, "value": val} for
-                                            key, val in temperature_values.items()]
-                    },
-                    headers={
-                        "X-PIN":    "11",
-                        "X-Sensor": LUFTDATEN_SENSOR_UID,
-                        "Content-Type": "application/json",
-                        "cache-control": "no-cache"
-                    }
+            response_pin_11 = requests.post("https://api.luftdaten.info/v1/push-sensor-data/",
+                json={
+                    "software_version": "enviro-plus 0.0.1",
+                    "sensordatavalues": [{"value_type": key, "value": val} for key, val in temperature_values.items()],
+                },
+                headers={
+                    "X-PIN": "11",
+                    "X-Sensor": SENSOR_UID,
+                    "Content-Type": "application/json",
+                    "cache-control": "no-cache",
+                },
             )
 
             if response_pin_1.ok and response_pin_11.ok:
                 if DEBUG:
-                    logging.info('Luftdaten response: OK')
+                    logging.info("Luftdaten response: OK")
             else:
-                logging.warning('Luftdaten response: Failed')
+                logging.warning("Luftdaten response: Failed")
         except Exception as exception:
-            logging.warning('Exception sending to Luftdaten: {}'.format(exception))
+            logging.warning("Exception sending to Luftdaten: {}".format(exception))
+
 
 def get_serial_number():
-    """Get Raspberry Pi serial number to use as LUFTDATEN_SENSOR_UID"""
-    with open('/proc/cpuinfo', 'r') as f:
+    """Get Raspberry Pi serial number to use as SENSOR_UID"""
+    with open("/proc/cpuinfo", "r") as f:
         for line in f:
-            if line[0:6] == 'Serial':
+            if line[0:6] == "Serial":
                 return str(line.split(":")[1].strip())
 
+
 def str_to_bool(value):
-    if value.lower() in {'false', 'f', '0', 'no', 'n'}:
+    if value.lower() in {"false", "f", "0", "no", "n"}:
         return False
-    elif value.lower() in {'true', 't', '1', 'yes', 'y'}:
+    elif value.lower() in {"true", "t", "1", "yes", "y"}:
         return True
-    raise ValueError('{} is not a valid boolean value'.format(value))
+    raise ValueError("{} is not a valid boolean value".format(value))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-b", "--bind", metavar='ADDRESS', default='0.0.0.0', help="Specify alternate bind address [default: 0.0.0.0]")
     parser.add_argument("-p", "--port", metavar='PORT', default=8000, type=int, help="Specify alternate port [default: 8000]")
@@ -293,13 +301,18 @@ if __name__ == '__main__':
 
     # Start up the server to expose the metrics.
     start_http_server(addr=args.bind, port=args.port)
-    # Generate some requests.
+
+    SENSOR_UID = "raspi-" + get_serial_number()
 
     if args.debug:
         DEBUG = True
 
     if args.factor:
-        logging.info("Using compensating algorithm (factor={}) to account for heat leakage from Raspberry Pi board".format(args.factor))
+        logging.info(
+            "Using compensating algorithm (factor={}) to account for heat leakage from Raspberry Pi board".format(
+                args.factor
+            )
+        )
 
     if args.influxdb:
         # Post to InfluxDB in another thread
@@ -309,8 +322,11 @@ if __name__ == '__main__':
 
     if args.luftdaten:
         # Post to Luftdaten in another thread
-        LUFTDATEN_SENSOR_UID = 'raspi-' + get_serial_number()
-        logging.info("Sensor data will be posted to Luftdaten every {} seconds for the UID {}".format(LUFTDATEN_TIME_BETWEEN_POSTS, LUFTDATEN_SENSOR_UID))
+        logging.info(
+            "Sensor data will be posted to Luftdaten every {} seconds for the UID {}".format(
+                LUFTDATEN_TIME_BETWEEN_POSTS, SENSOR_UID
+            )
+        )
         luftdaten_thread = Thread(target=post_to_luftdaten)
         luftdaten_thread.start()
 
@@ -325,4 +341,4 @@ if __name__ == '__main__':
             get_gas()
             get_particulates()
         if DEBUG:
-            logging.info('Sensor data: {}'.format(collect_all_data()))
+            logging.info("Sensor data: {}".format(collect_all_data()))
