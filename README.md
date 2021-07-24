@@ -1,54 +1,6 @@
-<!--
-*** Thanks for checking out this README Template. If you have a suggestion that would
-*** make this better, please fork the enviroplus_exporter and create a pull request or simply open
-*** an issue with the tag "enhancement".
-*** Thanks again! Now go create something AMAZING! :D
-***
-***
-***
-*** To avoid retyping too much info. Do a search and replace for the following:
-*** tijmenvandenbrink, enviroplus_exporter, tijmenvdbrink, email
--->
+# Air Quality Raspberry Pi Enviro+
 
-
-<!-- PROJECT SHIELDS -->
-<!--
-*** I'm using markdown "reference style" links for readability.
-*** Reference links are enclosed in brackets [ ] instead of parentheses ( ).
-*** See the bottom of this document for the declaration of the reference variables
-*** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
-*** https://www.markdownguide.org/basic-syntax/#reference-style-links
--->
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
-
-
-<!-- PROJECT LOGO -->
-<br />
-<p align="center">
-  <a href="https://github.com/tijmenvandenbrink/enviroplus_exporter">
-    <img src="logo/logo.png" alt="Logo" width="160" height="160">
-  </a>
-
-  <h3 align="center">Enviroplus-exporter</h3>
-
-  <p align="center">
-    Prometheus exporter for enviroplus module by Pimoroni
-    <br />
-    <a href="https://github.com/tijmenvandenbrink/enviroplus_exporter"><strong>Explore the docs »</strong></a>
-    <br />
-    <br />
-    <a href="https://github.com/tijmenvandenbrink/enviroplus_exporter">View Demo</a>
-    ·
-    <a href="https://github.com/tijmenvandenbrink/enviroplus_exporter/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/tijmenvandenbrink/enviroplus_exporter/issues">Request Feature</a>
-  </p>
-</p>
-
+[![Lint Code Base](https://github.com/stefanthoss/air-quality-raspi-enviro/actions/workflows/linter.yml/badge.svg)](https://github.com/stefanthoss/air-quality-raspi-enviro/actions/workflows/linter.yml)
 
 <!-- TABLE OF CONTENTS -->
 ## Table of Contents
@@ -66,12 +18,8 @@
 * [Contact](#contact)
 * [Acknowledgements](#acknowledgements)
 
-
-
 <!-- ABOUT THE PROJECT -->
 ## About The Project
-
-[![Product Name Screen Shot][product-screenshot]](https://github.com/tijmenvandenbrink/enviroplus_exporter)
 
 ### Built With
 
@@ -256,7 +204,6 @@ There is a Dockerfile available if you'd like to run as a docker container.
 
 See the [open issues](https://github.com/tijmenvandenbrink/enviroplus_exporter/issues) for a list of proposed features (and known issues).
 
-
 <!-- CONTRIBUTING -->
 ## Contributing
 
@@ -268,17 +215,10 @@ Contributions are what make the open source community such an amazing place to b
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-
 <!-- LICENSE -->
 ## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
-
-
-<!-- ACKNOWLEDGEMENTS -->
-## Acknowledgements
-
-
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
