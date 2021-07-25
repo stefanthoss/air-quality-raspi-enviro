@@ -7,6 +7,7 @@ import subprocess
 import time
 from threading import Thread
 
+import aqi
 import requests
 from bme280 import BME280
 from enviroplus import gas
@@ -44,6 +45,15 @@ Press Ctrl+C to exit!
 """
 )
 
+AQI_CATEGORIES = {
+    (-1, 50): "Good",
+    (50, 100): "Moderate",
+    (100, 150): "Unhealthy for Sensitive Groups",
+    (150, 200): "Unhealthy",
+    (200, 300): "Very Unhealthy",
+    (300, 500): "Hazardous",
+}
+
 DEBUG = os.getenv("DEBUG", "false") == "true"
 
 bus = SMBus(1)
@@ -68,6 +78,7 @@ PM25 = Gauge(
 PM10 = Gauge(
     "PM10", "Particulate Matter of diameter less than 10 microns. Measured in micrograms per cubic metre (ug/m3)"
 )
+AQI = Gauge("AQI", "AQI value based on PM2.5 and PM10 pollutant concentration using the EPA algorithm")
 
 OXIDISING_HIST = Histogram(
     "oxidising_measurements",
@@ -182,6 +193,12 @@ def reset_i2c():
     time.sleep(2)
 
 
+def get_aqi_category(aqi_value):
+    for limits, category in AQI_CATEGORIES.items():
+        if aqi_value > limits[0] and aqi_value <= limits[1]:
+            return category
+
+
 # Get the temperature of the CPU for compensation
 def get_cpu_temperature():
     with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
@@ -274,6 +291,12 @@ def get_particulates():
         PM25.set(pms_data.pm_ug_per_m3(2.5))
         PM10.set(pms_data.pm_ug_per_m3(10))
 
+        AQI.set(
+            aqi.to_aqi(
+                [(aqi.POLLUTANT_PM10, pms_data.pm_ug_per_m3(10)), (aqi.POLLUTANT_PM25, pms_data.pm_ug_per_m3(2.5))]
+            )
+        )
+
         PM1_HIST.observe(pms_data.pm_ug_per_m3(1.0))
         PM25_HIST.observe(pms_data.pm_ug_per_m3(2.5) - pms_data.pm_ug_per_m3(1.0))
         PM10_HIST.observe(pms_data.pm_ug_per_m3(10) - pms_data.pm_ug_per_m3(2.5))
@@ -293,6 +316,8 @@ def collect_all_data():
     sensor_data["PMS_P0"] = PM1.collect()[0].samples[0].value
     sensor_data["PMS_P1"] = PM10.collect()[0].samples[0].value
     sensor_data["PMS_P2"] = PM25.collect()[0].samples[0].value
+    sensor_data["AQI_value"] = AQI.collect()[0].samples[0].value
+    sensor_data["AQI_category"] = get_aqi_category(AQI.collect()[0].samples[0].value)
     return sensor_data
 
 
