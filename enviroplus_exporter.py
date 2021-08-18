@@ -9,16 +9,16 @@ from threading import Thread
 
 import aqi
 import requests
+import ST7735
 from bme280 import BME280
 from enviroplus import gas
+from fonts.ttf import RobotoMedium as UserFont
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
+from PIL import Image, ImageDraw, ImageFont
 from pms5003 import PMS5003
 from pms5003 import ReadTimeoutError as pmsReadTimeoutError
 from prometheus_client import Gauge, Histogram, start_http_server
-import ST7735
-from PIL import Image, ImageDraw, ImageFont
-from fonts.ttf import RobotoMedium as UserFont
 
 try:
     from smbus2 import SMBus
@@ -200,7 +200,7 @@ PM10_HIST = Histogram(
 INFLUXDB_URL = os.getenv("INFLUXDB_URL", "")
 INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "")
 INFLUXDB_ORG_ID = os.getenv("INFLUXDB_ORG_ID", "")
-INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "")
+INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "sensors")
 INFLUXDB_TIME_BETWEEN_POSTS = int(os.getenv("INFLUXDB_TIME_BETWEEN_POSTS", "5"))
 INFLUXDB_MEASUREMENT = os.getenv("INFLUXDB_MEASUREMENT", "air_quality")
 influxdb_client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG_ID)
@@ -225,7 +225,10 @@ def display_text(message, text_color):
     # Write the text
     (font_width, font_height) = font.getsize(message)
     draw.text(
-        (disp.width // 2 - font_width // 2, disp.height // 2 - font_height // 2), message, font=font, fill=text_color,
+        (disp.width // 2 - font_width // 2, disp.height // 2 - font_height // 2),
+        message,
+        font=font,
+        fill=text_color,
     )
     disp.display(img)
 
@@ -368,7 +371,7 @@ def refresh_display():
     """Refresh AQI value on display"""
     display_text("Start", (255, 255, 255))
 
-    previous_aqi = 0
+    previous_aqi = -1
     while True:
         time.sleep(DISPLAY_TIME_BETWEEN_UPDATES)
         sensor_data = collect_all_data()
