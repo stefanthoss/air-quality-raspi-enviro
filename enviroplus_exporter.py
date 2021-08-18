@@ -16,6 +16,9 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 from pms5003 import PMS5003
 from pms5003 import ReadTimeoutError as pmsReadTimeoutError
 from prometheus_client import Gauge, Histogram, start_http_server
+import ST7735
+from PIL import Image, ImageDraw, ImageFont
+from fonts.ttf import RobotoMedium as UserFont
 
 try:
     from smbus2 import SMBus
@@ -54,11 +57,31 @@ AQI_CATEGORIES = {
     (300, 500): "Hazardous",
 }
 
+AQI_COLORS = {
+    (-1, 50): (0, 128, 0),
+    (50, 100): (255, 255, 0),
+    (100, 150): (255, 165, 0),
+    (150, 200): (255, 0, 0),
+    (200, 300): (128, 0, 128),
+    (300, 500): (128, 0, 0),
+}
+
 DEBUG = os.getenv("DEBUG", "false") == "true"
 
 bus = SMBus(1)
 bme280 = BME280(i2c_dev=bus)
 pms5003 = PMS5003()
+
+# Create ST7735 LCD display class
+disp = ST7735.ST7735(port=0, cs=1, dc=9, backlight=12, rotation=270, spi_speed_hz=10000000)
+disp.begin()
+
+# Set up canvas and font
+img = Image.new("RGB", (disp.width, disp.height), color=(0, 0, 0))
+draw = ImageDraw.Draw(img)
+font_size = 48
+font = ImageFont.truetype(UserFont, font_size)
+DISPLAY_TIME_BETWEEN_UPDATES = 10
 
 TEMPERATURE = Gauge("temperature", "Temperature measured (*C)")
 PRESSURE = Gauge("pressure", "Pressure measured (hPa)")
@@ -193,10 +216,30 @@ def reset_i2c():
     time.sleep(2)
 
 
+# Displays data and text on the 0.96" LCD
+def display_text(message, text_color):
+    # Draw a black filled box to clear the image
+    draw.rectangle((0, 0, disp.width, disp.height), (0, 0, 0))
+    disp.display(img)
+
+    # Write the text
+    (font_width, font_height) = font.getsize(message)
+    draw.text(
+        (disp.width // 2 - font_width // 2, disp.height // 2 - font_height // 2), message, font=font, fill=text_color,
+    )
+    disp.display(img)
+
+
 def get_aqi_category(aqi_value):
     for limits, category in AQI_CATEGORIES.items():
         if aqi_value > limits[0] and aqi_value <= limits[1]:
             return category
+
+
+def get_aqi_color(aqi_value):
+    for limits, color in AQI_COLORS.items():
+        if aqi_value > limits[0] and aqi_value <= limits[1]:
+            return color
 
 
 # Get the temperature of the CPU for compensation
@@ -319,6 +362,19 @@ def collect_all_data():
     sensor_data["AQI_value"] = AQI.collect()[0].samples[0].value
     sensor_data["AQI_category"] = get_aqi_category(AQI.collect()[0].samples[0].value)
     return sensor_data
+
+
+def refresh_display():
+    """Refresh AQI value on display"""
+    display_text("Start", (255, 255, 255))
+
+    previous_aqi = 0
+    while True:
+        time.sleep(DISPLAY_TIME_BETWEEN_UPDATES)
+        sensor_data = collect_all_data()
+        if int(sensor_data["AQI_value"]) != previous_aqi:
+            previous_aqi = int(sensor_data["AQI_value"])
+            display_text("{}".format(previous_aqi), get_aqi_color(previous_aqi))
 
 
 def post_to_influxdb():
@@ -453,6 +509,14 @@ if __name__ == "__main__":
         default="false",
         help="Post sensor data to Luftdaten [default: false]",
     )
+    parser.add_argument(
+        "-s",
+        "--show",
+        metavar="SHOW",
+        type=str_to_bool,
+        default="true",
+        help="Show AQI value on display [default: true]",
+    )
     args = parser.parse_args()
 
     # Start up the server to expose the metrics.
@@ -489,6 +553,14 @@ if __name__ == "__main__":
         )
         luftdaten_thread = Thread(target=post_to_luftdaten)
         luftdaten_thread.start()
+
+    if args.show:
+        # Refresh display in another thread
+        logging.info(
+            "Display will be refreshed every {} seconds for the UID {}".format(DISPLAY_TIME_BETWEEN_UPDATES, SENSOR_UID)
+        )
+        display_thread = Thread(target=refresh_display)
+        display_thread.start()
 
     logging.info("Listening on http://{}:{}".format(args.bind, args.port))
 
