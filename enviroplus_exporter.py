@@ -337,11 +337,10 @@ def get_particulates():
         PM25.set(pms_data.pm_ug_per_m3(2.5))
         PM10.set(pms_data.pm_ug_per_m3(10))
 
-        AQI.set(
-            aqi.to_aqi(
-                [(aqi.POLLUTANT_PM10, pms_data.pm_ug_per_m3(10)), (aqi.POLLUTANT_PM25, pms_data.pm_ug_per_m3(2.5))]
-            )
-        )
+        # Workaround for https://github.com/hrbonz/python-aqi/issues/27
+        pm25_value = 500.4 if pms_data.pm_ug_per_m3(2.5) > 500.4 else pms_data.pm_ug_per_m3(2.5)
+        pm10_value = 604 if pms_data.pm_ug_per_m3(10) > 604 else pms_data.pm_ug_per_m3(10)
+        AQI.set(aqi.to_aqi([(aqi.POLLUTANT_PM25, pm25_value), (aqi.POLLUTANT_PM10, pm10_value)]))
 
         PM1_HIST.observe(pms_data.pm_ug_per_m3(1.0))
         PM25_HIST.observe(pms_data.pm_ug_per_m3(2.5) - pms_data.pm_ug_per_m3(1.0))
